@@ -2,7 +2,7 @@
 // localStorage fallback in the browser. Single JSON blob under one key.
 //
 // GOLD SYSTEM (main currency — call it "Gold" everywhere in UI):
-//   start: 100 Gold. Earn: win +150, capture +10, daily chests
+//   start: 100 Gold. Earn: win +150, capture +20, daily chests
 //   50/75/100/125/150/200/500, challenges +100/+80/+60, Share +250.
 //   Spend: Vega 180, Nyra 300, Blaze 450, Glitch 600, Miso 750, Chai Baba 900.
 //   Balance + history persist here and never reset on reload.
@@ -13,7 +13,7 @@ let useCapacitor = false
 try { useCapacitor = typeof Preferences !== 'undefined' } catch { useCapacitor = false }
 
 export const GOLD = {
-  START: 100, WIN: 150, CAPTURE: 10, SHARE: 250,
+  START: 100, WIN: 150, CAPTURE: 20, SHARE: 250,
   DAILY: [50, 75, 100, 125, 150, 200, 500], // Day 1..7
   CHALLENGES: { win1: 100, capture2: 80, roll6: 60 }
 }
