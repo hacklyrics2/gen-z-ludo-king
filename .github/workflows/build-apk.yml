@@ -50,8 +50,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # NOTE: do NOT use android-actions/setup-android — it runs
+      # `sdkmanager tools`, a package that no longer exists, and fails
+      # with exit code 1. ubuntu-latest already ships a full Android
+      # SDK (ANDROID_SDK_ROOT), so Gradle uses that directly.
+      - name: Check preinstalled Android SDK
+        run: |
+          echo "ANDROID_SDK_ROOT=$ANDROID_SDK_ROOT"
+          ls "$ANDROID_SDK_ROOT/platforms" | tail -5
+          "$ANDROID_SDK_ROOT/cmdline-tools/latest/bin/sdkmanager" --list_installed | tail -10
 
       - name: Build debug APK
         run: cd android && ./gradlew assembleDebug
