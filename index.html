@@ -7,12 +7,14 @@
 <meta name="mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-capable" content="yes" />
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+<link rel="icon" type="image/png" href="/logo.png" />
+<link rel="apple-touch-icon" href="/logo.png" />
 <title>GEN-Z LUDO KING — Your Table. Your Rules.</title>
 <style>
 :root{--navy:#0d1526;--navy2:#12203a;--navy3:#1a2c4d;--gold:#f5b82e;--gold2:#ffd75e;--purple:#6c2bd9;--purple2:#8b4dff;--cream:#fff8e6;--muted:#9fb0cc;--red:#ef4444;--green:#22c55e;--blue:#3b82f6;--yellow:#facc15}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;padding:0;height:100%;overflow:hidden;background:var(--navy);color:var(--cream);font-family:system-ui,-apple-system,'Segoe UI',Roboto,Arial,sans-serif;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
-#app{position:fixed;inset:0;max-width:480px;margin:0 auto;background:radial-gradient(120% 90% at 50% 0%,#1c2f5e 0%,#0d1526 55%,#080f1e 100%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
+#app{position:fixed;inset:0;max-width:480px;margin:0 auto;background:radial-gradient(130% 80% at 50% -10%,#3b2a8f 0%,#1c2f5e 34%,#6c2bd9 58%,#0d1526 82%,#070d1a 100%);display:flex;flex-direction:column;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)}
 .screen{display:none;flex:1;min-height:0;flex-direction:column;overflow-y:auto;padding:16px 16px 20px;scrollbar-width:none}
 .screen.active{display:flex}
 .screen::-webkit-scrollbar{display:none}
@@ -80,27 +82,67 @@ input[type=range]{padding:0;accent-color:var(--gold)}
 .center{text-align:center}
 .bigEmoji{font-size:56px}
 #fallback{padding:24px;text-align:center;color:var(--muted)}
+.logoImg{width:92px;height:92px;border-radius:22px;box-shadow:0 8px 24px rgba(0,0,0,.5),0 0 0 3px rgba(245,184,46,.55);object-fit:cover}
+.logoImg.small{width:44px;height:44px;border-radius:12px}
+.heroBanner{position:relative;border-radius:20px;overflow:hidden;border:1px solid rgba(245,184,46,.4);box-shadow:0 12px 30px rgba(0,0,0,.45);margin:10px 0 4px;background:linear-gradient(180deg,#2a1a6e,#0d1526)}
+.heroBanner canvas{width:100%;height:168px;display:block}
+.heroBanner .heroTag{position:absolute;left:12px;bottom:10px;font-weight:900;font-size:13px;color:#fff;text-shadow:0 2px 6px #000}
+.heroBanner .heroTag span{color:var(--gold)}
+.chip{cursor:pointer}
+.btn svg,.tile svg{vertical-align:-3px;margin-right:6px}
+.loginWrap{display:flex;flex-direction:column;align-items:center;text-align:center;padding-top:18px}
+.glowBadge{display:inline-block;background:linear-gradient(180deg,#ffd75e,#f5b82e);color:#1a1200;font-weight:900;font-size:12px;letter-spacing:.12em;border-radius:999px;padding:6px 14px;box-shadow:0 0 24px rgba(245,184,46,.75);margin-top:10px}
+#loginCanvas{width:100%;max-width:300px;height:190px}
+.googleBtn{background:#fff!important;color:#1f2937!important;box-shadow:0 6px 0 #9ca3af!important}
+.avatarPick{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:8px}
+.avatarPick button{background:#0f1d38;border:2px solid rgba(255,255,255,.14);border-radius:14px;padding:6px;color:#fff;font-size:11px;font-weight:700}
+.avatarPick button.selected{border-color:var(--gold);box-shadow:0 0 0 2px var(--gold)}
+.avatarPick img{width:100%;height:64px;object-fit:contain;display:block}
+.spinWheelWrap{display:flex;flex-direction:column;align-items:center;padding:8px 0}
+#spinWheel{width:250px;height:250px;border-radius:50%;border:6px solid var(--gold);box-shadow:0 0 30px rgba(245,184,46,.5);transition:transform 3s cubic-bezier(.12,.8,.16,1);background:conic-gradient(#ef4444 0 45deg,#f5b82e 45deg 90deg,#22c55e 90deg 135deg,#3b82f6 135deg 180deg,#a855f7 180deg 225deg,#ec4899 225deg 270deg,#f97316 270deg 315deg,#14b8a6 315deg 360deg);position:relative}
+#spinWheel:after{content:"";position:absolute;inset:38%;background:#0d1526;border:3px solid var(--gold);border-radius:50%}
+#spinPointer{font-size:28px;margin-bottom:-8px;z-index:2}
+.charThumb{width:52px;height:52px;border-radius:12px;object-fit:contain;background:#0f1d38;flex:0 0 52px}
+.diffBtn{padding:14px;border-radius:14px;background:#16294d;color:#fff;border:2px solid rgba(255,255,255,.12);font-weight:800}
+.diffBtn.selected{border-color:var(--gold);color:var(--gold)}
 @media (max-height:640px){.hero{font-size:34px}}
 </style>
 </head>
 <body>
 <div id="app">
+  <!-- LOGIN (first screen — shown when no session exists) -->
+  <section class="screen" id="screen-login">
+    <div class="loginWrap">
+      <img src="/logo.png" alt="GEN-Z LUDO KING logo" class="logoImg" />
+      <span class="glowBadge">★ 3D LUDO • ONLINE • OFFLINE ★</span>
+      <canvas id="loginCanvas" aria-label="Grandpa character preview"></canvas>
+      <h1 class="hero" style="font-size:34px;margin:6px 0">GEN-Z<br/><span>LUDO KING</span></h1>
+      <p class="sub">Your table. Your rules. Walking characters, real 3D dice, online rooms.</p>
+    </div>
+    <div class="card">
+      <button class="btn googleBtn" id="btnLoginGoogle">G Continue with Google</button>
+      <button class="btn purple" id="btnLoginGuest">Play as Guest</button>
+      <p class="muted center">Guest ya Google — dono mein Gold, Diamonds aur streak save hote hain.</p>
+    </div>
+  </section>
+
   <!-- HOME -->
   <section class="screen active" id="screen-home">
-    <div class="topbar"><div class="logo">GEN-Z <b>LUDO KING</b></div><div class="row" style="flex:0 0 auto"><button class="iconbtn" id="btnMute" title="Sound">🔊</button><button class="iconbtn" id="btnAuth" title="Sign in">🔐</button><button class="iconbtn" id="btnProfileTop" title="Profile">👤</button></div></div>
+    <div class="topbar"><div class="row" style="flex:0 0 auto"><img src="/logo.png" alt="GEN-Z LUDO KING" class="logoImg small" /><div class="logo">GEN-Z <b>LUDO KING</b><div class="muted" id="homeUserName" style="font-size:11px;letter-spacing:0">Player 1</div></div></div><div class="row" style="flex:0 0 auto"><button class="iconbtn" id="btnMute" title="Sound">🔊</button><button class="iconbtn" id="btnAuth" title="Sign in">🔐</button><button class="iconbtn" id="btnProfileTop" title="Profile">👤</button></div></div>
     <div class="row"><span class="chip gold" id="homeCoins">🪙 100 Gold</span><span class="chip" id="homeStreak">🔥 0-day streak</span><span class="chip" id="homeWins">🏆 0 wins</span><span class="chip" id="homeDiamonds" style="color:#22d3ee">💎 10 Diamonds</span></div>
+    <div class="heroBanner"><canvas id="heroCanvas" aria-label="Grandpa, Grandma and Miso around the 3D Ludo board"></canvas><div class="heroTag">Grandpa • Grandma • Miso — <span>live 3D characters</span></div></div>
     <h1 class="hero">Your table.<br/><span>Your rules.</span></h1>
     <p class="sub">Classic Ludo with a whole lot of character. Offline play — 2 to 8 players on 1 phone.</p>
     <div class="card" style="margin-bottom:12px">
-      <div class="row"><button class="btn" id="btnPlayLocal" style="margin:0">🎲 Local<br/><span style="font-size:12px;font-weight:600">Share one phone</span></button><button class="btn secondary" id="btnPractice" style="margin:0">🤖 Practice<br/><span style="font-size:12px;font-weight:600">Play vs bots</span></button></div>
-      <button class="btn purple" id="btnOnline">🌐 Play Online <span style="font-size:12px;font-weight:600">2P / 4P · entry fee · winner takes pot</span></button>
-      <div class="row"><button class="btn secondary" id="btnFriends" style="margin:0">👥 Friends<br/><span style="font-size:12px;font-weight:600">6-digit room code</span></button><button class="btn secondary" id="btnSpin" style="margin:0">🎡 Lucky Spin<br/><span style="font-size:12px;font-weight:600">1 free spin daily</span></button></div>
+      <div class="row"><button class="btn" id="btnPlayLocal" style="margin:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="18" height="18" rx="4" fill="#1a1200"/><circle cx="8.5" cy="8.5" r="1.8" fill="#f5b82e"/><circle cx="15.5" cy="15.5" r="1.8" fill="#f5b82e"/><circle cx="15.5" cy="8.5" r="1.8" fill="#f5b82e"/><circle cx="8.5" cy="15.5" r="1.8" fill="#f5b82e"/></svg> Local<br/><span style="font-size:12px;font-weight:600">Share one phone</span></button><button class="btn secondary" id="btnPractice" style="margin:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="7" width="16" height="12" rx="3" fill="#fff"/><circle cx="9" cy="12" r="1.6" fill="#1a2c4d"/><circle cx="15" cy="12" r="1.6" fill="#1a2c4d"/><path d="M12 7V4" stroke="#fff" stroke-width="2"/></svg> Practice<br/><span style="font-size:12px;font-weight:600">Play vs bots</span></button></div>
+      <button class="btn purple" id="btnOnline"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="2"/><path d="M3 12h18M12 3c3 3.5 3 14 0 18M12 3c-3 3.5-3 14 0 18" stroke="#fff" stroke-width="1.6"/></svg> Play Online <span style="font-size:12px;font-weight:600">2P / 4P · entry fee · winner takes pot</span></button>
+      <div class="row"><button class="btn secondary" id="btnFriends" style="margin:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="8" cy="9" r="3.4" fill="#fff"/><circle cx="17" cy="10" r="2.6" fill="#ffd75e"/><path d="M2.5 19c.8-3 3-4.5 5.5-4.5S12.7 16 13.5 19M13 19c.6-2.4 2.2-3.6 4-3.6 1.5 0 2.8.9 3.4 2.6" stroke="#fff" stroke-width="1.8" fill="none"/></svg> Friends<br/><span style="font-size:12px;font-weight:600">6-digit room code</span></button><button class="btn secondary" id="btnSpin" style="margin:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" stroke="#fff" stroke-width="2"/><path d="M12 12L12 3M12 12l7.8 4.5M12 12l-7.8 4.5" stroke="#ffd75e" stroke-width="2"/></svg> Lucky Spin<br/><span style="font-size:12px;font-weight:600">1 free spin daily</span></button></div>
     </div>
     <div class="grid2">
-      <button class="tile" id="btnStore">🛍️ <b>Store</b><span>Unlock characters</span></button>
-      <button class="tile" id="btnThemes">🎨 <b>Themes</b><span>4 board worlds</span></button>
-      <button class="tile" id="btnRewards">🎁 <b>Rewards</b><span>Daily bonus</span></button>
-      <button class="tile" id="btnProfile">📊 <b>Profile</b><span>Stats &amp; streak</span></button>
+      <button class="tile" id="btnStore"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><path d="M4 8h16l-1.5 11h-13L4 8z" fill="#f5b82e"/><path d="M8 8V6a4 4 0 018 0v2" stroke="#fff" stroke-width="2" fill="none"/></svg> <b>Store</b><span>Unlock characters</span></button>
+      <button class="tile" id="btnThemes"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9" fill="#6c2bd9"/><circle cx="9" cy="10" r="1.6" fill="#fff"/><circle cx="14" cy="9" r="1.6" fill="#ffd75e"/><circle cx="15" cy="14" r="1.6" fill="#22c55e"/><circle cx="9" cy="15" r="1.6" fill="#ef4444"/></svg> <b>Themes</b><span>4 board worlds</span></button>
+      <button class="tile" id="btnRewards"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><rect x="4" y="9" width="16" height="11" rx="2" fill="#f5b82e"/><path d="M12 9v11M4 13h16" stroke="#1a1200" stroke-width="2"/></svg> <b>Rewards</b><span>Daily bonus</span></button>
+      <button class="tile" id="btnProfile"><svg width="18" height="18" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="8" r="4" fill="#fff"/><path d="M4 20c1.5-3.5 4.5-5 8-5s6.5 1.5 8 5" fill="#fff"/></svg> <b>Profile</b><span>Stats &amp; streak</span></button>
     </div>
     <p class="muted center" style="margin-top:14px">Offline-first · No account · No ads · v1.0.0</p>
   </section>
@@ -132,7 +174,7 @@ input[type=range]{padding:0;accent-color:var(--gold)}
 
   <!-- GAME -->
   <section class="screen" id="screen-game" style="padding-bottom:10px">
-    <div class="topbar"><button class="iconbtn" id="btnPause">⏸</button><div class="center"><b id="gameTitle">GEN-Z LUDO KING</b><div class="muted" id="gameSubtitle">Classic · 4 players</div></div><button class="iconbtn" id="btnFairQuick" title="Fair Play">👁️</button></div>
+    <div class="topbar"><div class="row" style="flex:0 0 auto"><button class="iconbtn" id="btnHomeGame" title="Back to Home">🏠</button><button class="iconbtn" id="btnPause">⏸</button></div><div class="center"><b id="gameTitle">GEN-Z LUDO KING</b><div class="muted" id="gameSubtitle">Classic · 4 players</div></div><button class="iconbtn" id="btnFairQuick" title="Fair Play">👁️</button></div>
     <div id="gameCanvasWrap"><div id="hud"></div><div id="finisherPop">BONK!</div><div id="fallback" hidden>3D could not start on this device.<br/>The game logic still works — try a device with WebGL enabled.</div></div>
     <div id="diceBar"><button id="diceBtn" title="Roll dice">🎲</button><div id="turnLabel">Tap the dice to roll<small>Roll a 6 to leave base</small></div><button class="btn secondary small" id="btnHint">Hint</button></div>
     <div class="row" style="margin-top:10px"><button class="btn secondary" id="btnQuitGame" style="margin:0">Quit</button><button class="btn" id="btnRollAgain" style="margin:0">Roll dice</button><span id="turnTimer" style="flex:0 0 44px"></span></div>
@@ -157,7 +199,8 @@ input[type=range]{padding:0;accent-color:var(--gold)}
   <!-- PROFILE -->
   <section class="screen" id="screen-profile">
     <div class="topbar"><button class="iconbtn" data-nav="home">←</button><h2>Profile</h2><button class="btn secondary small" id="btnResetSave">Reset</button></div>
-    <div class="card center"><div class="bigEmoji">🎲</div><h2 id="profileName">Player 1</h2><p class="muted">365-day streak hunter</p></div>
+    <div class="card center"><img src="/logo.png" alt="GEN-Z LUDO KING" class="logoImg" style="width:64px;height:64px" /><h2 id="profileName">Player 1</h2><p class="muted" id="profileProvider">Guest</p><p class="muted">365-day streak hunter</p></div>
+    <div class="card" style="margin-top:12px"><label>Username (editable)</label><input id="profileUsernameInput" maxlength="16" /><button class="btn" id="btnSaveUsername" style="margin-top:10px">Save username</button><button class="btn secondary" id="btnLogout" style="margin-top:8px">Logout / Switch Account</button></div>
     <div class="card" style="margin-top:12px" id="profileStats"></div>
     <div class="card" style="margin-top:12px"><h3>🪙 Gold wallet</h3><p class="muted" id="walletBalance">Balance: 100 Gold</p><div id="goldHistory"></div><button class="btn secondary" id="btnShareGold">📣 Share app · +250 Gold</button></div>
   </section>
@@ -206,7 +249,7 @@ input[type=range]{padding:0;accent-color:var(--gold)}
   <!-- AUTH -->
   <section class="screen" id="screen-auth">
     <div class="topbar"><button class="iconbtn" data-nav="home">←</button><h2>Sign in</h2></div>
-    <div class="card center"><div class="bigEmoji" id="authAvatar">🎲</div><h2 id="authName">Player 1</h2><p class="muted" id="authProvider">Guest · demo mode (no Firebase keys)</p>
+    <div class="card center"><img src="/logo.png" alt="GEN-Z LUDO KING" class="logoImg" style="width:64px;height:64px" /><div class="bigEmoji" id="authAvatar">🎲</div><h2 id="authName">Player 1</h2><p class="muted" id="authProvider">Guest · demo mode (no Firebase keys)</p>
     <div class="bar"><i id="xpBar" style="width:10%"></i></div><p class="muted" id="xpText">Level 1 · 0 XP</p></div>
     <div class="card" style="margin-top:12px"><label>Username</label><input id="usernameInput" maxlength="16" /><label>Country flag</label><input id="countryInput" maxlength="4" /><button class="btn" id="btnSaveProfile">Save profile</button>
     <button class="btn secondary" id="btnGoogleSignIn">🔵 Sign in with Google</button>
@@ -226,6 +269,47 @@ input[type=range]{padding:0;accent-color:var(--gold)}
 <div class="modal" id="winModal"><div class="sheet center">
   <div class="bigEmoji">🏆</div><h2 id="winTitle">You win!</h2><p class="muted" id="winText"></p>
   <button class="btn" id="btnWinHome">Back to home</button><button class="btn secondary" id="btnPlayAgain">Play again</button>
+</div></div>
+
+<!-- GOOGLE SIGN-IN MODAL (mock — instant, never shows an API error) -->
+<div class="modal" id="googleModal"><div class="sheet">
+  <h2>Continue with Google</h2><p class="muted">Enter your Google name &amp; email — you are signed in instantly.</p>
+  <label>Your name</label><input id="googleNameInput" maxlength="24" placeholder="e.g. Anish" />
+  <label>Email</label><input id="googleEmailInput" type="email" placeholder="you@gmail.com" />
+  <button class="btn googleBtn" id="btnGoogleModalSignIn" style="margin-top:12px">G Sign in</button>
+  <button class="btn secondary" id="btnGoogleModalCancel">Cancel</button>
+</div></div>
+
+<!-- GUEST MODAL -->
+<div class="modal" id="guestModal"><div class="sheet">
+  <h2>Play as Guest</h2><p class="muted">Pick a username and your 3D character.</p>
+  <label>Username</label><input id="guestNameInput" maxlength="16" placeholder="e.g. Anish" />
+  <label>Your character</label><div class="avatarPick" id="guestAvatarPick"></div>
+  <button class="btn" id="btnGuestStart" style="margin-top:12px">Start playing →</button>
+  <button class="btn secondary" id="btnGuestCancel">Cancel</button>
+</div></div>
+
+<!-- PRACTICE MODAL -->
+<div class="modal" id="practiceModal"><div class="sheet">
+  <h2>Practice vs Bots</h2><p class="muted">Choose difficulty and your character — the match starts immediately.</p>
+  <label>Difficulty</label>
+  <div class="grid2" id="practiceDiffs">
+    <button class="diffBtn" data-diff="easy">Easy</button>
+    <button class="diffBtn selected" data-diff="medium">Medium</button>
+    <button class="diffBtn" data-diff="hard">Hard</button>
+  </div>
+  <label>Your character</label><div class="avatarPick" id="practiceAvatarPick"></div>
+  <button class="btn" id="btnPracticeStart" style="margin-top:12px">Start match →</button>
+  <button class="btn secondary" id="btnPracticeCancel">Cancel</button>
+</div></div>
+
+<!-- LUCKY SPIN WHEEL MODAL -->
+<div class="modal" id="spinModal"><div class="sheet center">
+  <h2>Lucky Spin</h2><p class="muted">1 free spin every day — win Gold or Diamonds.</p>
+  <div class="spinWheelWrap"><div id="spinPointer">▼</div><div id="spinWheel"></div></div>
+  <p style="font-weight:800;color:#f5b82e" id="spinWheelResult"></p>
+  <button class="btn" id="btnSpinWheel">Spin the wheel</button>
+  <button class="btn secondary" id="btnSpinClose">Close</button>
 </div></div>
 
 <div id="toast"></div>
