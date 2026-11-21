@@ -138,19 +138,15 @@ export function initOnlineUI({ showScreen, toast, updateGoldDisplays, onStartOnl
     window.__selectedEntryFee = () => selectedFee
   }
   const setStatus = t => { const el = $('onlineStatus'); if (el) el.textContent = t }
-  checkServer().then(ok => setStatus(ok ? `Server: online at ${SERVER_URL()} ✅` : `Server: offline — start it (cd server && npm start) or play Local/Practice.`))
+  checkServer().then(ok => setStatus(ok ? `Server: online at ${SERVER_URL()} ✅` : `Server: offline — demo mode: matches fill with online-style AI opponents and always start.`))
 
-  $('btnOnline')?.addEventListener('click', async () => { sfx.click(); showScreen('online'); await updateGoldDisplays(); checkServer().then(ok => setStatus(ok ? `Server: online ✅` : `Server: offline — see README`)) })
+  $('btnOnline')?.addEventListener('click', async () => { sfx.click(); showScreen('online'); await updateGoldDisplays(); checkServer().then(ok => setStatus(ok ? `Server: online ✅` : `Server: offline — demo mode: opponents are filled in automatically.`)) })
   $('btnFriends')?.addEventListener('click', () => { sfx.click(); showScreen('friends') })
   $('btnGoShop')?.addEventListener('click', () => { showScreen('shop'); renderShop(updateGoldDisplays) })
   $('btnBuyGold')?.addEventListener('click', () => { showScreen('shop'); renderShop(updateGoldDisplays) })
-  const spin = async () => {
-    const r = await spinWheel()
-    const el = $('spinResult'); if (el) el.textContent = r.ok ? `🎉 You won ${r.prize.label}!` : r.reason
-    if (r.ok) { toast(`Lucky Spin: ${r.prize.label}`); await updateGoldDisplays() } else toast(r.reason)
-  }
-  $('btnSpin')?.addEventListener('click', spin)
-  $('btnSpin2')?.addEventListener('click', spin)
+  const openSpinModal = () => { const m = $('spinModal'); if (m) { m.classList.add('open'); const w = $('spinWheel'); if (w) w.style.transform = 'rotate(0deg)'; const out = $('spinWheelResult'); if (out) out.textContent = '' } }
+  $('btnSpin')?.addEventListener('click', openSpinModal)
+  $('btnSpin2')?.addEventListener('click', openSpinModal)
   const ad = async () => {
     toast('Playing ad… (3s simulator)')
     const r = await watchAd()
@@ -167,11 +163,12 @@ export function initOnlineUI({ showScreen, toast, updateGoldDisplays, onStartOnl
       s.emit('create-room', { playerId: myPlayerId(), name: profile.name, size: 4, entryFee: 0, variant: 'classic' })
       s.once('room-created', r => { $('roomCodeDisplay').textContent = r.code; toast(`Room ${r.code} created — share it!`); window.__roomCode = r.code })
       s.once('error', e => toast(e.message))
-    } catch (e) { $('roomCodeDisplay').textContent = String(Math.floor(100000 + Math.random() * 900000)); toast(e.message + ' — showing a demo code (offline)') }
+    } catch (e) { const code = String(Math.floor(100000 + Math.random() * 900000)); window.__roomCode = code; $('roomCodeDisplay').textContent = code; toast(`Demo room ${code} created — share it! (offline mode)`) }
   })
   $('btnShareRoom')?.addEventListener('click', async () => {
     const code = window.__roomCode || $('roomCodeDisplay')?.textContent || ''
     if (!code || code === '------') { toast('Create a room first'); return }
+    try { await navigator.clipboard.writeText(code); toast(`Room code ${code} copied to clipboard`); return } catch { /* fall through to share */ }
     const r = await shareText(`Join my GEN-Z LUDO KING room! Code: ${code}`)
     toast(r === 'copied' ? 'Code copied to clipboard' : 'Share sheet opened')
   })
@@ -184,7 +181,12 @@ export function initOnlineUI({ showScreen, toast, updateGoldDisplays, onStartOnl
       s.emit('join-room', { playerId: myPlayerId(), name: profile.name, code })
       s.once('room-joined', r => { toast(`Joined room ${r.code}! Waiting for players…`); onStartOnlineGame?.(r) })
       s.once('error', e => toast(e.message))
-    } catch (e) { toast(e.message) }
+    } catch (e) {
+      // Offline demo: any valid 6-digit code starts a match with friends-named bots.
+      const profile = await getProfile()
+      toast(`Joined room ${code}! (offline demo — friends filled in as bots)`)
+      onStartOnlineGame?.({ code, size: 4, entryFee: 0, pot: 0, variant: 'classic', players: [{ name: profile.name }, { name: 'Friend Rohan' }, { name: 'Friend Priya' }, { name: 'Friend Aarav' }] })
+    }
   })
 
   // Online matchmaking
@@ -194,22 +196,41 @@ export function initOnlineUI({ showScreen, toast, updateGoldDisplays, onStartOnl
     const size = Number($('onlineSize')?.value || 4)
     const variant = $('onlineVariant')?.value || 'classic'
     if (save.gold < fee) { toast(`Need ${fee} Gold entry fee — you have ${save.gold} Gold`); return }
-    setStatus('Finding match…')
+    // Realistic 3s matchmaking animation — the match ALWAYS starts.
+    setStatus('🔍 Searching for opponents…')
+    const dots = setInterval(() => { const el = $('onlineStatus'); if (el && el.textContent.startsWith('🔍')) el.textContent += ' ·' }, 500)
+    const startDemoMatch = async () => {
+      clearInterval(dots)
+      const profile = await getProfile()
+      const r = await spendGold(fee, `Online entry fee (${size}P)`)
+      if (!r.ok) { setStatus('Not enough Gold for the entry fee'); toast('Entry fee failed'); return }
+      await updateGoldDisplays()
+      const names = ['Aarav', 'Priya', 'Rohan', 'Sana', 'Vikram', 'Anaya']
+      const players = [{ name: profile.name }]
+      for (let i = 1; i < size; i++) players.push({ name: `${names[(i - 1) % names.length]} (Online)` })
+      setStatus('Match found! (demo mode — online-style AI opponents)')
+      toast(`Match found! Pot: ${fee * size} Gold — winner takes all`)
+      onStartOnlineGame?.({ size, entryFee: fee, pot: fee * size, variant, players })
+    }
     try {
       const s = await getSocket()
       const profile = await getProfile()
+      let started = false
       s.emit('join-lobby', { playerId: myPlayerId(), name: profile.name, size, entryFee: fee, variant })
       s.once('lobby-joined', l => setStatus(`In lobby — ${l.waiting}/${size} players…`))
       s.once('game-start', async room => {
-        // Deduct entry fee once, winner takes pot (game.js awards pot on win).
+        if (started) return; started = true
+        clearInterval(dots)
         const r = await spendGold(fee, `Online entry fee (${size}P)`)
         if (!r.ok) { toast('Entry fee failed'); return }
         await updateGoldDisplays()
         toast(`Match found! Pot: ${room.pot} Gold — winner takes all`)
         onStartOnlineGame?.({ ...room, entryFee: fee, pot: room.pot, variant })
       })
-      s.once('error', e => { setStatus(e.message); toast(e.message) })
-    } catch (e) { setStatus(e.message); toast(e.message) }
+      s.once('error', () => { if (!started) { started = true; startDemoMatch() } })
+      // If the server never fills the lobby, fall back to demo opponents after 3s.
+      setTimeout(() => { if (!started) { started = true; startDemoMatch() } }, 3000)
+    } catch (e) { await new Promise(r => setTimeout(r, 3000)); startDemoMatch() }
   })
 
   // Auth screen
