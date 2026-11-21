@@ -162,7 +162,7 @@ tap 🎲 → tap a glowing piece to move it.** Captures pay +10 Gold, wins +150 
 
 ## Build the Android APK / AAB (exact commands)
 
-Requires Android Studio / Android SDK + JDK 17 on your machine.
+Requires Android Studio / Android SDK + JDK 21 on your machine (Capacitor 7 needs Java 21; JDK 17 fails with "invalid source release: 21").
 The APK is **not** built in this repo checkout — Capacitor config is ready.
 
 ```bash
