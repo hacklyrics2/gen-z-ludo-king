@@ -17,6 +17,9 @@ import { initOnlineUI, renderShop } from './online.js'
 import { renderQuickChat, floatEmoji, startTurnTimer, EMOJIS } from '../social/social.js'
 import { diamondLabel } from '../engine/storage.js'
 import { hapticDice } from '../utils/haptics.js'
+import { getProfile, signOut, signInWithGoogle, playAsGuest, hasSession, updateProfile } from '../auth/auth.js'
+import { startPreview, snapshotCharacter } from './preview3d.js'
+import { spinWheel } from './online.js'
 
 const $ = id => document.getElementById(id)
 let toastTimer = null
@@ -41,6 +44,14 @@ export async function updateGoldDisplays() {
   if ($('shopGold')) $('shopGold').textContent = label
   if ($('shopDiamonds')) $('shopDiamonds').textContent = diamondLabel(save.diamonds)
   if ($('onlineGold')) $('onlineGold').textContent = label
+  try {
+    const prof = await getProfile()
+    if ($('homeUserName')) $('homeUserName').textContent = prof.name || 'Player 1'
+    if ($('profileName')) $('profileName').textContent = prof.name || 'Player 1'
+    if ($('profileProvider')) $('profileProvider').textContent = `${prof.provider === 'google' ? 'Google' : 'Guest'}${prof.email ? ' · ' + prof.email : ''} · Level ${save.level || 1}`
+    const pu = $('profileUsernameInput')
+    if (pu && document.activeElement !== pu) pu.value = prof.name || ''
+  } catch { /* profile display is best-effort */ }
   return save
 }
 // Gold pop: chime + toast + header refresh, used on every earn/spend.
@@ -55,6 +66,55 @@ export async function initApp() {
   let board3d = null, game = null, dice = null
   let squad = { count: 4, boardMode: save.boardMode || 'classic', world: save.world || 'classic', players: [] }
   let rolling = false
+  let heroPreview = null, loginPreview = null
+  let practiceDiff = 'medium', practiceChar = save.selectedCharacter || 'grandpa', guestChar = 'grandpa'
+  function startHeroPreview() {
+    try { heroPreview?.stop(); heroPreview = startPreview($('heroCanvas'), { ids: ['grandpa', 'grandma', 'miso'], board: true, playerColors: ['#ef4444', '#22c55e', '#facc15'] }) } catch { /* preview is decorative */ }
+  }
+  function startLoginPreview() {
+    try { loginPreview?.stop(); loginPreview = startPreview($('loginCanvas'), { ids: ['grandpa'] }) } catch { /* preview is decorative */ }
+  }
+  async function completeLogin() {
+    loginPreview?.stop(); loginPreview = null
+    await updateGoldDisplays()
+    showScreen('home')
+    startHeroPreview()
+  }
+  // Avatar picker grid (3D snapshot thumbnails, no emoji-only avatars).
+  function buildAvatarPick(container, selectedId, onPick) {
+    if (!container) return
+    container.innerHTML = ''
+    CHARACTER_LIST.forEach(c => {
+      const b = document.createElement('button')
+      b.type = 'button'
+      if (c.id === selectedId) b.classList.add('selected')
+      const img = snapshotCharacter(c.id, '#ef4444', 120)
+      b.innerHTML = `${img ? `<img src="${img}" alt="${c.name}" />` : `<span style="font-size:28px">${c.emoji}</span>`}<br/>${c.name}${save.unlocked.includes(c.id) ? '' : ' 🔒'}`
+      if (!save.unlocked.includes(c.id)) b.disabled = true
+      b.addEventListener('click', () => { onPick(c.id); container.querySelectorAll('button').forEach(x => x.classList.remove('selected')); b.classList.add('selected') })
+      container.appendChild(b)
+    })
+  }
+  function openPracticeModal() {
+    buildAvatarPick($('practiceAvatarPick'), practiceChar, id => { practiceChar = id })
+    document.querySelectorAll('#practiceDiffs .diffBtn').forEach(b => {
+      b.classList.toggle('selected', b.dataset.diff === practiceDiff)
+      b.onclick = () => { practiceDiff = b.dataset.diff; document.querySelectorAll('#practiceDiffs .diffBtn').forEach(x => x.classList.toggle('selected', x === b)) }
+    })
+    $('practiceModal')?.classList.add('open')
+  }
+  async function startPracticeGame() {
+    $('practiceModal')?.classList.remove('open')
+    const players = defaultSquad(squad.count, true).map((pl, i) => ({
+      ...pl,
+      type: i === 0 ? 'human' : 'bot',
+      difficulty: practiceDiff,
+      characterId: i === 0 ? practiceChar : pl.characterId,
+      name: i === 0 ? 'You' : `Bot ${i + 1}`
+    }))
+    await saveSave({ selectedCharacter: practiceChar })
+    await startGame(players, { variant: 'classic' })
+  }
 
   // ---- Squad defaults: P1 human (selected char), rest human, practice = bots
   function defaultSquad(count, practice = false) {
@@ -75,7 +135,7 @@ export async function initApp() {
       const div = document.createElement('div')
       div.className = 'charRow'
       div.innerHTML = `
-        <div class="avatar" style="background:${p.color}">${(CHARACTERS[p.characterId] || CHARACTERS.grandpa).emoji}</div>
+        <img class="charThumb" alt="${(CHARACTERS[p.characterId] || CHARACTERS.grandpa).name} 3D preview" src="${snapshotCharacter(p.characterId, p.color, 120) || ''}" onerror="this.style.display='none'" />
         <div style="flex:1"><b>P${i + 1} · ${PLAYER_NAMES[i]}</b>
           <div class="muted">${(CHARACTERS[p.characterId] || {}).name || ''} — ${(CHARACTERS[p.characterId] || {}).title || ''}</div>
           <select data-role="type" style="margin-top:6px">
@@ -88,7 +148,7 @@ export async function initApp() {
           ${CHARACTER_LIST.map(c => `<option value="${c.id}" ${p.characterId === c.id ? 'selected' : ''} ${save.unlocked.includes(c.id) ? '' : 'disabled'}>${c.name}${save.unlocked.includes(c.id) ? '' : ' 🔒'}</option>`).join('')}
         </select>`
       div.querySelector('[data-role=type]').addEventListener('change', e => { p.type = e.target.value; if (p.type === 'off') p.type = 'bot' })
-      div.querySelector('[data-role=char]').addEventListener('change', e => { p.characterId = e.target.value })
+      div.querySelector('[data-role=char]').addEventListener('change', e => { p.characterId = e.target.value; renderPlayerRows() })
       wrap.appendChild(div)
     })
   }
@@ -109,22 +169,21 @@ export async function initApp() {
   // ---- Navigation
   document.querySelectorAll('[data-nav]').forEach(b => b.addEventListener('click', () => { sfx.click(); showScreen(b.dataset.nav) }))
   const go = id => { sfx.click(); showScreen(id) }
-  $('btnStore').addEventListener('click', async () => { go('store'); await renderStore($('storeList'), $('storeCoins'), updateGoldDisplays) })
-  $('btnThemes').addEventListener('click', () => go('themes'))
-  $('btnRewards').addEventListener('click', () => { go('rewards'); renderRewards($('rewardGrid'), $('challengeList'), $('rewardStreak')) })
-  $('btnProfile').addEventListener('click', async () => { go('profile'); renderProfile($('profileStats'), $('walletBalance'), $('goldHistory')); await updateGoldDisplays() })
-  $('btnProfileTop').addEventListener('click', async () => { go('profile'); renderProfile($('profileStats'), $('walletBalance'), $('goldHistory')) })
-  $('btnOnlineInfo').addEventListener('click', () => toast('Online needs a server — this build is 100% offline. Local & Practice work now.'))
-  $('btnPlayLocal').addEventListener('click', () => { squad.players = defaultSquad(squad.count, false); renderPlayerRows(); go('squad') })
-  $('btnPractice').addEventListener('click', () => { squad.players = defaultSquad(squad.count, true); renderPlayerRows(); go('squad') })
+  $('btnStore')?.addEventListener('click', async () => { go('store'); await renderStore($('storeList'), $('storeCoins'), updateGoldDisplays) })
+  $('btnThemes')?.addEventListener('click', () => go('themes'))
+  $('btnRewards')?.addEventListener('click', () => { go('rewards'); renderRewards($('rewardGrid'), $('challengeList'), $('rewardStreak')) })
+  $('btnProfile')?.addEventListener('click', async () => { go('profile'); renderProfile($('profileStats'), $('walletBalance'), $('goldHistory')); await updateGoldDisplays() })
+  $('btnProfileTop')?.addEventListener('click', async () => { go('profile'); renderProfile($('profileStats'), $('walletBalance'), $('goldHistory')) })
+  $('btnPlayLocal')?.addEventListener('click', () => { squad.players = defaultSquad(squad.count, false); renderPlayerRows(); go('squad') })
+  $('btnPractice')?.addEventListener('click', () => { openPracticeModal() })
   const toggleMute = async () => {
     const m = await sfx.toggleMute()
     document.querySelectorAll('#btnMute,#btnSound2').forEach(b => { b.textContent = m ? '🔇' : '🔊' })
     toast(m ? 'Sound off' : 'Sound on')
   }
-  $('btnMute').addEventListener('click', toggleMute)
+  $('btnMute')?.addEventListener('click', toggleMute)
   $('btnSound2')?.addEventListener('click', toggleMute)
-  $('btnResetSave').addEventListener('click', async () => {
+  $('btnResetSave')?.addEventListener('click', async () => {
     if (!confirm('Reset all Gold, characters and stats?')) return
     await resetSave(); location.reload()
   })
@@ -133,24 +192,24 @@ export async function initApp() {
     if (r.ok) { await goldPop(r.amount, 'Shared GEN-Z LUDO KING'); renderProfile($('profileStats'), $('walletBalance'), $('goldHistory')) }
     else toast(r.reason)
   })
-  $('btnClaimReward').addEventListener('click', async () => {
+  $('btnClaimReward')?.addEventListener('click', async () => {
     const r = await claimDailyReward()
     if (r.ok) { await goldPop(r.amount, `Daily reward Day ${r.day} · ${r.streak}-day streak`); renderRewards($('rewardGrid'), $('challengeList'), $('rewardStreak')) }
     else toast(r.reason)
   })
 
   // ---- Squad setup controls
-  $('playersMinus').addEventListener('click', () => setCount(squad.count - 1))
-  $('playersPlus').addEventListener('click', () => setCount(squad.count + 1))
+  $('playersMinus')?.addEventListener('click', () => setCount(squad.count - 1))
+  $('playersPlus')?.addEventListener('click', () => setCount(squad.count + 1))
   function setCount(n) {
     squad.count = Math.min(8, Math.max(2, n))
-    $('playersCount').textContent = String(squad.count)
+    $('playersCount') && ($('playersCount').textContent = String(squad.count))
     squad.boardMode = squad.count > 4 ? 'radial' : 'classic'
-    $('boardMode').value = squad.boardMode
+    if ($('boardMode')) $('boardMode').value = squad.boardMode
     squad.players = defaultSquad(squad.count, squad.players.some(p => p.type === 'bot'))
     renderPlayerRows()
   }
-  $('boardMode').addEventListener('change', e => { squad.boardMode = e.target.value; saveSave({ boardMode: squad.boardMode }) })
+  $('boardMode')?.addEventListener('change', e => { squad.boardMode = e.target.value; saveSave({ boardMode: squad.boardMode }) })
   await initCustomize({
     fairToggle: $('fairPlayToggle'), presetsEl: $('colorPresets'),
     hueEl: $('hueSlider'), intEl: $('intSlider'), brightEl: $('brightSlider'),
@@ -159,7 +218,7 @@ export async function initApp() {
   renderWorlds(); renderPlayerRows()
 
   // ---- Game start
-  $('btnStartGame').addEventListener('click', async () => {
+  $('btnStartGame')?.addEventListener('click', async () => {
     const active = squad.players.filter(p => p.type !== 'off')
     if (active.length < 2) { toast('Need at least 2 players'); return }
     squad.variant = $('gameVariant')?.value || 'classic'
@@ -174,6 +233,7 @@ export async function initApp() {
     showScreen('game')
     $('gameSubtitle').textContent = `${squad.boardMode === 'radial' ? 'Radial · 5–8 players' : 'Classic · ' + players.length + ' players'} · ${WORLDS[squad.world].name}`
     const wrap = $('gameCanvasWrap')
+    let boardFailed = false
     try {
       if (!board3d) {
         board3d = new Board3D(wrap)
@@ -183,9 +243,13 @@ export async function initApp() {
       board3d.resize()
     } catch (e) {
       console.error('[webgl]', e)
+      boardFailed = true
       $('fallback').hidden = false
-      toast('3D unavailable on this device — game logic still runs')
+      toast('3D unavailable on this device — try a device with WebGL enabled')
     }
+    // Without a board there is no scene for the character rigs: do not
+    // construct Game with a null board (setup() would throw on board.scene).
+    if (boardFailed || !board3d || !dice) return
     const s = await loadSave()
     if (dice) dice.setSkin(s.diceSkin || 'classic')
     game = new Game(board3d, dice, { fairPlay: s.fairPlay, customColor: s.customColor?.preset, variant, entryFee, pot, onEvent: handleGameEvent })
@@ -268,17 +332,17 @@ export async function initApp() {
     $('diceBtn').disabled = game.over || game.current().type === 'bot'
     rolling = false
   }
-  $('diceBtn').addEventListener('click', doRoll)
-  $('btnRollAgain').addEventListener('click', doRoll)
-  $('btnHint').addEventListener('click', () => {
+  $('diceBtn')?.addEventListener('click', doRoll)
+  $('btnRollAgain')?.addEventListener('click', doRoll)
+  $('btnHint')?.addEventListener('click', () => {
     if (!game) return
     const legal = game.legalMoves(game.turn, game.diceValue || 6)
     toast(legal.length ? `Movable pieces: ${legal.map(i => i + 1).join(', ')}` : 'Roll the dice first — need a 6 to leave base')
   })
-  $('btnQuitGame').addEventListener('click', () => { showScreen('home'); updateGoldDisplays() })
-  $('btnWinHome').addEventListener('click', () => { $('winModal').classList.remove('open'); showScreen('home'); updateGoldDisplays() })
-  $('btnPlayAgain').addEventListener('click', () => { $('winModal').classList.remove('open'); startGame(game.players) })
-  $('btnPause').addEventListener('click', () => {
+  $('btnQuitGame')?.addEventListener('click', () => { showScreen('home'); updateGoldDisplays() })
+  $('btnWinHome')?.addEventListener('click', () => { $('winModal').classList.remove('open'); showScreen('home'); updateGoldDisplays() })
+  $('btnPlayAgain')?.addEventListener('click', () => { $('winModal').classList.remove('open'); startGame(game.players) })
+  $('btnPause')?.addEventListener('click', () => {
     if (!game) return
     const wrap = $('pauseRows'); wrap.innerHTML = ''
     game.players.forEach((p, i) => {
@@ -296,9 +360,9 @@ export async function initApp() {
     })
     $('pauseModal').classList.add('open')
   })
-  $('btnResume').addEventListener('click', () => $('pauseModal').classList.remove('open'))
-  $('btnQuitFromPause').addEventListener('click', () => { $('pauseModal').classList.remove('open'); showScreen('home'); updateGoldDisplays() })
-  $('btnFairQuick').addEventListener('click', async () => {
+  $('btnResume')?.addEventListener('click', () => $('pauseModal').classList.remove('open'))
+  $('btnQuitFromPause')?.addEventListener('click', () => { $('pauseModal').classList.remove('open'); showScreen('home'); updateGoldDisplays() })
+  $('btnFairQuick')?.addEventListener('click', async () => {
     const s = await loadSave()
     const on = !s.fairPlay
     await saveSave({ fairPlay: on })
@@ -308,7 +372,7 @@ export async function initApp() {
 
   // Tap a glowing piece in 3D to move it (raycast).
   const ray = new THREE.Raycaster(); const ptr = new THREE.Vector2()
-  $('gameCanvasWrap').addEventListener('pointerdown', e => {
+  $('gameCanvasWrap')?.addEventListener('pointerdown', e => {
     if (!game || !board3d || game.current().type === 'bot' || game.moving || game.over) return
     const rect = board3d.renderer.domElement.getBoundingClientRect()
     ptr.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
@@ -325,9 +389,72 @@ export async function initApp() {
     else toast('That piece cannot move with this roll')
   })
 
+  // ---- Login screen (first screen when no session exists) ----
+  $('btnLoginGoogle')?.addEventListener('click', () => { $('googleModal')?.classList.add('open') })
+  $('btnGoogleModalCancel')?.addEventListener('click', () => { $('googleModal')?.classList.remove('open') })
+  $('btnGoogleModalSignIn')?.addEventListener('click', async () => {
+    const name = $('googleNameInput')?.value.trim() || 'Player 1'
+    const email = $('googleEmailInput')?.value.trim() || ''
+    $('googleModal')?.classList.remove('open')
+    const r = await signInWithGoogle(name, email)
+    toast(r.ok ? `Welcome, ${name}!` : 'Sign-in failed — try Guest')
+    if (r.ok) await completeLogin()
+  })
+  $('btnLoginGuest')?.addEventListener('click', () => {
+    buildAvatarPick($('guestAvatarPick'), guestChar, id => { guestChar = id })
+    $('guestModal')?.classList.add('open')
+  })
+  $('btnGuestCancel')?.addEventListener('click', () => { $('guestModal')?.classList.remove('open') })
+  $('btnGuestStart')?.addEventListener('click', async () => {
+    const name = $('guestNameInput')?.value.trim() || 'Guest Player'
+    await playAsGuest(name, guestChar)
+    $('guestModal')?.classList.remove('open')
+    toast(`Welcome, ${name}!`)
+    await completeLogin()
+  })
+  // ---- Practice modal ----
+  $('btnPracticeCancel')?.addEventListener('click', () => { $('practiceModal')?.classList.remove('open') })
+  $('btnPracticeStart')?.addEventListener('click', startPracticeGame)
+  // ---- Lucky Spin wheel modal ----
+  $('btnSpinClose')?.addEventListener('click', () => { $('spinModal')?.classList.remove('open') })
+  $('btnSpinWheel')?.addEventListener('click', async () => {
+    const wheel = $('spinWheel'); const btn = $('btnSpinWheel')
+    if (!wheel || btn.disabled) return
+    btn.disabled = true
+    const finalDeg = 1440 + Math.floor(Math.random() * 360)
+    wheel.style.transform = `rotate(${finalDeg}deg)`
+    await new Promise(r => setTimeout(r, 3100))
+    const res = await spinWheel()
+    const out = $('spinWheelResult')
+    if (out) out.textContent = res.ok ? `🎉 You won ${res.prize.label}!` : res.reason
+    if (res.ok) { toast(`Lucky Spin: ${res.prize.label}`); await updateGoldDisplays() } else toast(res.reason)
+    btn.disabled = false
+  })
+  // ---- Profile: editable username + logout ----
+  $('btnSaveUsername')?.addEventListener('click', async () => {
+    const name = $('profileUsernameInput')?.value.trim() || 'Player 1'
+    await updateProfile({ name })
+    toast('Username saved'); await updateGoldDisplays()
+  })
+  $('btnLogout')?.addEventListener('click', async () => {
+    if (!confirm('Logout and switch account? Your Gold and stats stay saved on this device.')) return
+    await signOut()
+    heroPreview?.stop(); heroPreview = null
+    showScreen('login'); startLoginPreview()
+    toast('Logged out — sign in again to play')
+  })
+  // ---- Gold / Diamonds HUD chips open the Shop ----
+  ;['homeCoins', 'homeDiamonds', 'storeCoins', 'onlineGold'].forEach(id => {
+    $(id)?.addEventListener('click', () => { sfx.click(); showScreen('shop'); renderShop(updateGoldDisplays) })
+  })
+  // ---- Back to Home from the game (top-left) ----
+  $('btnHomeGame')?.addEventListener('click', () => { showScreen('home'); updateGoldDisplays(); startHeroPreview() })
+
   initOnlineUI({ showScreen, toast, updateGoldDisplays, onStartOnlineGame: async room => {
     squad.variant = room.variant || 'classic'
-    const players = (room.players || []).map((rp, i) => ({ type: 'human', difficulty: 'medium', characterId: CHARACTER_LIST[i % CHARACTER_LIST.length].id, name: rp.name || `Player ${i + 1}`, color: PLAYER_COLORS[i] }))
+    // Player 0 is you (human); every other seat is a bot, even when the
+    // room came from an online/friends demo fill — otherwise the game stalls.
+    const players = (room.players || []).map((rp, i) => ({ type: i === 0 ? 'human' : 'bot', difficulty: 'medium', characterId: CHARACTER_LIST[i % CHARACTER_LIST.length].id, name: rp.name || `Player ${i + 1}`, color: PLAYER_COLORS[i] }))
     while (players.length < (room.size || 4)) players.push({ type: 'bot', difficulty: 'medium', characterId: CHARACTER_LIST[players.length % CHARACTER_LIST.length].id, name: `Bot ${players.length + 1}`, color: PLAYER_COLORS[players.length] })
     await startGame(players, { variant: squad.variant, entryFee: room.entryFee || 0, pot: room.pot || 0 })
   } })
@@ -335,5 +462,6 @@ export async function initApp() {
   renderShop(updateGoldDisplays)
   await updateGoldDisplays()
   renderRewards($('rewardGrid'), $('challengeList'), $('rewardStreak'))
-  showScreen('home')
+  if (hasSession()) { showScreen('home'); startHeroPreview() }
+  else { showScreen('login'); startLoginPreview() }
 }
