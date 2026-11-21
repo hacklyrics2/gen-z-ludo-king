@@ -5,6 +5,7 @@ import { CHARACTER_LIST } from '../engine/characters.js'
 import { loadSave, saveSave, spendGold, goldLabel } from '../engine/storage.js'
 import { sfx } from '../audio/sfx.js'
 import { hapticCoin } from '../utils/haptics.js'
+import { snapshotCharacter } from './preview3d.js'
 
 export async function renderStore(listEl, coinsEl, onGoldChange) {
   const save = await loadSave()
@@ -16,7 +17,7 @@ export async function renderStore(listEl, coinsEl, onGoldChange) {
     const row = document.createElement('div')
     row.className = 'charRow'
     row.innerHTML = `
-      <div class="avatar" style="background:${'#'+c.color.toString(16).padStart(6,'0')}">${c.emoji}</div>
+      <img class="charThumb" alt="${c.name} 3D preview" src="${snapshotCharacter(c.id, '#ef4444', 120) || ''}" onerror="this.style.display='none'" />
       <div style="flex:1;min-width:0">
         <b>${c.name}</b> <span class="pill">${c.title}</span>
         <div class="muted">${c.finisherDesc}</div>
