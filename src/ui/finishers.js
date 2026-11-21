@@ -18,7 +18,7 @@ export function playFinisher(board3d, popEl, { finisher = 'BONK!', text = '', po
   return text
 }
 
-// Gold pop animation: brief "+10 Gold" toast handled by screens.js via
+// Gold pop animation: brief "+N Gold" toast handled by screens.js via
 // the 'gold' event; this helper just formats it.
 export function goldToastText(delta, reason) {
   return delta > 0 ? `+${delta} Gold — ${reason}` : `${delta} Gold — ${reason}`
