@@ -1,0 +1,16 @@
+{
+  "description": "GEN-Z LUDO KING game server \u2014 authoritative matchmaking + rooms (Express + Socket.io).",
+  "main": "index.js",
+  "name": "gen-z-ludo-king-server",
+  "private": true,
+  "scripts": {
+    "start": "node index.js"
+  },
+  "type": "commonjs",
+  "version": "1.0.0",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1"
+  }
+}
