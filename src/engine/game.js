@@ -2,7 +2,7 @@
 // Rules: 6 to exit base; bonus turn on 6 / capture / reaching home;
 // three 6s in a row forfeits the turn; exact roll to enter home (56);
 // glowing ring on movable pieces; auto-move if only 1 legal move.
-// Gold: win +150, capture +10 per capture, challenge counters updated here.
+// Gold: win +150, capture +20 per capture, challenge counters updated here.
 // Variants (opts.variant): 'classic' = all 4 home; 'quick'/'rush' = 1 piece
 // home + 1 capture; 'team' = 2v2, a team wins when both partners have all 4 home.
 // Online: opts.entryFee / opts.pot — winner takes the whole pot.
@@ -211,7 +211,7 @@ export class Game {
     const vRig = this.rigs[victim.player][victim.piece]
     const vPiece = this.players[victim.player].pieces[victim.piece]
     const def = CHARACTERS[this.players[attacker].characterId] || CHARACTERS.grandpa
-    // Gold: +10 per capture.
+    // Gold: +20 per capture.
     this.captures[attacker] = (this.captures[attacker] || 0) + 1
     const save = await addGold(GOLD.CAPTURE, `Capture vs ${this.players[victim.player].name}`)
     save.challenges.capture2 = (save.challenges.capture2 || 0) + 1
@@ -236,7 +236,7 @@ export class Game {
       }
       step()
     })
-    this.onEvent({ type: 'gold', balance: save.gold, delta: GOLD.CAPTURE, reason: 'Capture +10 Gold' })
+    this.onEvent({ type: 'gold', balance: save.gold, delta: GOLD.CAPTURE, reason: 'Capture +20 Gold' })
   }
 
   checkWin(playerIndex) {
