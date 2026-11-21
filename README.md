@@ -14,7 +14,7 @@ Gold is the main currency (gold coin icon, `#f5b82e`) — called **Gold** everyw
 |---|---|
 | Start | **100 Gold** |
 | Win a match | **+150 Gold** |
-| Capture a goti | **+10 Gold** per capture |
+| Capture a goti | **+20 Gold** per capture |
 | Daily chests (Day 1–7) | **50 / 75 / 100 / 125 / 150 / 200 / 500 Gold** |
 | Challenge: Win 1 match | **+100 Gold** |
 | Challenge: Capture 2 gotis | **+80 Gold** |
@@ -30,7 +30,7 @@ plus a Gold wallet + earn/spend history in Profile. It persists in
 
 ## 💎 Dual currency — Gold + Diamonds
 
-- **Gold** (main): start 100, win +150, capture +10, daily chests, challenges, Share +250.
+- **Gold** (main): start 100, win +150, capture +20, daily chests, challenges, Share +250.
 - **Diamonds** (premium): start 10 💎. Earn from Lucky Spin + Watch Ad rewards.
   Spend on Board Worlds (Jungle 25💎, Ocean 40💎, Cloud 60💎) and Neon Dice (30💎).
 - HUD shows both balances with + buttons (opens the Shop).
@@ -158,7 +158,7 @@ npm run preview    # serve the production build
 ```
 
 Play: **Home → Local / Practice → Build your squad (2–8 players) → Let's go →
-tap 🎲 → tap a glowing piece to move it.** Captures pay +10 Gold, wins +150 Gold.
+tap 🎲 → tap a glowing piece to move it.** Captures pay +20 Gold, wins +150 Gold.
 
 ## Build the Android APK / AAB (exact commands)
 
