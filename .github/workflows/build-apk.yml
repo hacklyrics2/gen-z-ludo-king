@@ -2,7 +2,7 @@
 # push to main (or Run workflow) -> download GEN-Z LUDO KING debug APK
 # from the Actions tab -> Artifacts.
 # The repo has Capacitor config but no android/ folder (android/ is
-# gitignored); CI runs `npx cap add android` + Gradle with JDK 17 +
+# gitignored); CI runs `npx cap add android` + Gradle with JDK 21 +
 # Android SDK. No secrets needed: firebase.js falls back to demo/guest
 # mode when the VITE_FIREBASE_* vars are absent, so the build works
 # without .env.
@@ -44,11 +44,13 @@ jobs:
           npx cap add android
           npx cap sync
 
-      - name: Set up JDK 17
+      # Capacitor 7 / AGP needs Java 21 (JDK 17 fails with
+      # "invalid source release: 21" in :capacitor-android).
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       # NOTE: do NOT use android-actions/setup-android — it runs
       # `sdkmanager tools`, a package that no longer exists, and fails
