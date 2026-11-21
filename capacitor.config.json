@@ -1,0 +1,17 @@
+{
+  "android": {
+    "allowMixedContent": true
+  },
+  "appId": "com.anish.genzludoking",
+  "appName": "GEN-Z LUDO KING",
+  "plugins": {
+    "SplashScreen": {
+      "backgroundColor": "#0d1526",
+      "launchShowDuration": 800
+    }
+  },
+  "server": {
+    "androidScheme": "https"
+  },
+  "webDir": "dist"
+}
